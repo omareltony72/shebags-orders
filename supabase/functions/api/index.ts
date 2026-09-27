@@ -239,8 +239,11 @@ Deno.serve(async (req) => {
       if (to === "cancelled") {
         if (!["new", "confirmed", "prepared"].includes(o.status)) throw new HttpErr(400, "مينفعش يتلغي في الحالة دي");
         if (o.status !== "new") need(p, ["admin"]);
-        if (o.stock_deducted || o.receipt_number) await adjustStock(o.items, 1); // pieces go back to stock automatically
         await save(o, { status: "cancelled", stock_deducted: false });
+        if (o.stock_deducted || o.receipt_number) {
+          try { await adjustStock(o.items, 1); } // pieces go back to stock automatically
+          catch (e) { await admin.from("orders").update({ status: o.status, stock_deducted: o.stock_deducted }).eq("id", o.id); throw e; }
+        }
         return json({ ok: true });
       }
       if (to === "back") { // one step back
@@ -281,6 +284,10 @@ Deno.serve(async (req) => {
       }
       if (kind === "partial" && (!back.length || !kept.length)) throw new HttpErr(400, "في الاستلام الجزئي لازم يبقى فيه منتج راجع ومنتج مستلم");
       if (!["collected", "returned", "partial"].includes(kind)) throw new HttpErr(400, "نوع غير معروف");
+      // lock: only one request can settle this order (double click used to return stock twice)
+      const { data: lock } = await admin.from("orders").update({ settled_at: now() }).eq("id", o.id).eq("status", "shipping").is("settled_at", null).select("id");
+      if (!lock?.length) throw new HttpErr(409, "الأوردر ده بيتقفل بالفعل — اعمل تحديث");
+      try {
       const keptSub = kept.reduce((s, l) => s + Number(l.price) * Number(l.qty), 0);
       const net = kind === "returned" ? 0 : (body.net_amount != null && body.net_amount !== "" ? Number(body.net_amount) : keptSub - Number(o.deposit));
       let receipt: string | null = o.receipt_number;
@@ -295,6 +302,10 @@ Deno.serve(async (req) => {
       await save(o, { status: kind, settled_at: now(), settled_by: p.id, net_amount: net, returned_items: back.length ? back : null,
         receipt_number: receipt, stock_deducted: false });
       return json({ ok: true, receipt });
+      } catch (e) {
+        await admin.from("orders").update({ settled_at: null }).eq("id", o.id).eq("status", "shipping");
+        throw e;
+      }
     }
 
     if (a === "users") {

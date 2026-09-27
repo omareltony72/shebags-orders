@@ -525,9 +525,12 @@ function openSettle(id,kind){
     doSettle(id,"partial",ret,$("#stNet").value)};
   $("#settle").classList.add("on");
 }
+let SETTLING=false;
 async function doSettle(id,kind,returned,net){
+  if(SETTLING)return;SETTLING=true;const go=$("#stGo");if(go)go.disabled=true;
   try{const r=await api("settle",{order_id:id,kind,returned,net_amount:net});$("#settle").classList.remove("on");toast("✅ تم"+(r.receipt?` — فاتورة ${r.receipt}`:""));CAT=null}
   catch(err){toast("❌ "+err.message,7000)}
+  SETTLING=false;if(go)go.disabled=false;
   loadOrders();
 }
 
