@@ -370,10 +370,10 @@ $("#save").onclick=async()=>{
   $("#fErr").textContent="";$("#save").disabled=true;
   const row={customer_name:name,phone,phone2:digits($("#fPhone2").value)||null,address:addr,zone:t.z[0],city:t.z[1],shipping_fee:t.ship,
     items:ITEMS.map(({max,image,...i})=>i),subtotal:t.sub,deposit:t.dep,contents:contents(ITEMS),notes:$("#fNotes").value.trim()||null,created_by:ME.id};
-  const {data,error}=await sb.from("orders").insert(row).select().single();
+  let data;
+  try{data=await api("create_order",{order:row})}catch(err){$("#save").disabled=false;$("#fErr").textContent="حصل خطأ: "+err.message;return}
   $("#save").disabled=false;
-  if(error){$("#fErr").textContent="حصل خطأ: "+error.message;return}
-  toast("✅ اتحفظ أوردر #"+data.id);
+  toast("✅ اتحفظ أوردر #"+data.id+(data.receipt?" — فاتورة "+data.receipt:""));
   ITEMS=[];["#fName","#fPhone","#fPhone2","#fAddr","#fNotes"].forEach(s=>$(s).value="");$("#fDep").value=0;$("#fZone").value="";$("#phoneMsg").innerHTML="";renderItems();
   CAT=null;loadCat(true);
 };
@@ -415,7 +415,7 @@ function renderOrders(){
   [...SEL].forEach(id=>{if(!list.some(o=>o.id===id))SEL.delete(id)});
   $("#list").innerHTML=list.map(o=>{
     const mine=o.created_by===ME.id,acts=[];
-    if(o.status==="new"){acts.push(mine?`<span class="muted">محتاج حد تاني يأكده</span>`:`<button class="btn ok sm" data-a="confirmed" data-id="${o.id}">✔ تأكيد</button>`);acts.push(`<button class="btn bad sm" data-a="cancelled" data-id="${o.id}">إلغاء</button>`)}
+    if(o.status==="new"){acts.push(`<button class="btn ok sm" data-a="confirmed" data-id="${o.id}">✔ تأكيد</button>`);acts.push(`<button class="btn bad sm" data-a="cancelled" data-id="${o.id}">إلغاء (يرجّع المخزون)</button>`)}
     if(o.status==="confirmed"){acts.push(`<button class="btn sm" data-a="prepared" data-id="${o.id}">📦 تم التجهيز</button>`);if(isAdmin())acts.push(`<button class="btn bad sm" data-a="cancelled" data-id="${o.id}">إلغاء (يرجّع المخزون)</button>`)}
     if(o.status==="prepared"&&isAdmin())acts.push(`<button class="btn ghost sm" data-a="back" data-id="${o.id}">رجّعه لمؤكد</button>`,`<button class="btn bad sm" data-a="cancelled" data-id="${o.id}">إلغاء (يرجّع المخزون)</button>`);
     acts.push(waBtn(o));
@@ -438,7 +438,7 @@ async function onAction(e){
   const w=e.target.closest("[data-wa]");if(w){sendWA(ORDERS.find(x=>x.id==w.dataset.wa));return}
   const st=e.target.closest("[data-settle]");if(st){openSettle(+st.dataset.id,st.dataset.settle);return}
   const b=e.target.closest("[data-a]");if(!b)return;
-  const labels={confirmed:"تأكيد الأوردر وخصمه من المخزون",prepared:"تعليم الأوردر إنه اتجهز",cancelled:"إلغاء الأوردر",back:"رجوع الأوردر خطوة لورا"};
+  const labels={confirmed:"تأكيد الأوردر",prepared:"تعليم الأوردر إنه اتجهز",cancelled:"إلغاء الأوردر (القطع هترجع للمخزون)",back:"رجوع الأوردر خطوة لورا"};
   if(!confirm(labels[b.dataset.a]+" #"+b.dataset.id+"؟"))return;
   b.disabled=true;
   try{const r=await api("set_status",{order_id:+b.dataset.id,status:b.dataset.a});toast(r.note?"✅ تم — "+r.note:"تم ✅",r.note?6000:2600);CAT=null}catch(err){toast("❌ "+err.message,6000)}
@@ -505,7 +505,7 @@ $("#mList").addEventListener("click",e=>{const r=e.target.closest("[data-reexp]"
 function openSettle(id,kind){
   const o=ORDERS.find(x=>x.id===id);
   if(kind!=="partial"){
-    const t=kind==="collected"?`تأكيد تحصيل #${id}؟\nهيتعمل فاتورة في Loyverse بطريقة دفع "اوردرات اونلاين"، والمبلغ (${money(due(o))}) يتخصم من رصيدك عند شركة الشحن.`:`تسجيل #${id} مرتجع؟\nكل القطع هترجع للمخزون.`;
+    const t=kind==="collected"?`تأكيد تحصيل #${id}؟\nالمبلغ (${money(due(o))}) يتخصم من رصيدك عند شركة الشحن.`:`تسجيل #${id} مرتجع؟\nكل القطع هترجع للمخزون.`;
     if(!confirm(t))return;
     return doSettle(id,kind,[]);
   }

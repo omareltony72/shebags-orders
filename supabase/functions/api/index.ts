@@ -57,7 +57,7 @@ async function catalog(force = false) {
   const [items, inv] = await Promise.all([lvAll("/items", "items"), lvAll("/inventory", "inventory_levels")]);
   const stock = new Map<string, number>();
   for (const l of inv) if (l.store_id === sid) stock.set(l.variant_id, Number(l.in_stock) || 0);
-  const { data: pend } = await admin.from("orders").select("items").eq("status", "new");
+  const pend: any[] = []; // stock is deducted in Loyverse as soon as an order is saved
   const reserved = new Map<string, number>();
   for (const o of pend || []) for (const it of o.items) reserved.set(it.variant_id, (reserved.get(it.variant_id) || 0) + Number(it.qty));
   const products = items
@@ -151,6 +151,7 @@ async function createReceipt(o: any, lines: any[]) {
     line_items: lines.map((l) => ({ variant_id: l.variant_id, quantity: Number(l.qty), price: Number(l.price) })),
     payments: [{ payment_type_id: pt, money_amount: total }],
   }) });
+  catCache = null;
   return r.receipt_number || r.id || "ok";
 }
 
@@ -198,18 +199,37 @@ Deno.serve(async (req) => {
       if (!data?.length) throw new HttpErr(409, "الأوردر اتغيّر من حد تاني — اعمل تحديث");
     };
 
+    if (a === "create_order") {
+      need(p, ["admin", "moderator"]);
+      const b = body.order || {};
+      const items = (b.items || []).map((i: any) => ({ item_id: i.item_id, variant_id: i.variant_id, name: i.name, color: i.color || "", sku: i.sku || "", price: Number(i.price), qty: Number(i.qty) }));
+      if (!items.length || items.some((i: any) => !i.variant_id || !(i.qty > 0) || !(i.price >= 0))) throw new HttpErr(400, "المنتجات مش صحيحة");
+      const subtotal = items.reduce((s: number, i: any) => s + i.price * i.qty, 0);
+      const row = { customer_name: String(b.customer_name || "").trim(), phone: b.phone, phone2: b.phone2 || null, address: String(b.address || "").trim(),
+        zone: b.zone, city: b.city, shipping_fee: Number(b.shipping_fee), items, subtotal, deposit: Number(b.deposit || 0),
+        contents: b.contents, notes: b.notes || null, created_by: p.id, status: "new" };
+      const { data: o, error } = await admin.from("orders").insert(row).select().single();
+      if (error) throw new HttpErr(400, "البيانات ناقصة أو غلط: " + error.message);
+      try {
+        // receipt deducts the stock in Loyverse immediately
+        const rn = await createReceipt(o, items);
+        await admin.from("orders").update({ receipt_number: rn, stock_deducted: true }).eq("id", o.id);
+        return json({ ok: true, id: o.id, receipt: rn });
+      } catch (e) {
+        await admin.from("orders").delete().eq("id", o.id);
+        throw new HttpErr(502, "الأوردر متسجلش لأن الفاتورة معرفتش تتعمل في Loyverse: " + (e as Error).message);
+      }
+    }
+
     if (a === "set_status") {
       const o = await getOrder(body.order_id);
       const to = body.status;
       if (to === "confirmed") {
         if (o.status !== "new") throw new HttpErr(400, "الأوردر مش في حالة جديد");
-        if (o.created_by === p.id) throw new HttpErr(403, "مينفعش تأكد أوردر انت اللي عامله — لازم حد تاني يأكده");
-        await adjustStock(o.items, -1);
-        await save(o, { status: "confirmed", confirmed_by: p.id, confirmed_at: now(), stock_deducted: true });
-        let note = null;
-        try { await ensureCustomer(o); } catch (e) { note = "العميل متسجلش في Loyverse: " + (e as Error).message; }
-        if (note) await admin.from("orders").update({ sync_note: note }).eq("id", o.id);
-        return json({ ok: true, note });
+        const legacy = !o.receipt_number && !o.stock_deducted; // old order saved without receipt
+        if (legacy) await adjustStock(o.items, -1);
+        await save(o, { status: "confirmed", confirmed_by: p.id, confirmed_at: now(), ...(legacy ? { stock_deducted: true } : {}) });
+        return json({ ok: true });
       }
       if (to === "prepared") {
         if (o.status !== "confirmed") throw new HttpErr(400, "لازم الأوردر يكون مؤكد الأول");
@@ -219,7 +239,7 @@ Deno.serve(async (req) => {
       if (to === "cancelled") {
         if (!["new", "confirmed", "prepared"].includes(o.status)) throw new HttpErr(400, "مينفعش يتلغي في الحالة دي");
         if (o.status !== "new") need(p, ["admin"]);
-        if (o.stock_deducted) await adjustStock(o.items, 1);
+        if (o.stock_deducted || o.receipt_number) await adjustStock(o.items, 1); // pieces go back to stock automatically
         await save(o, { status: "cancelled", stock_deducted: false });
         return json({ ok: true });
       }
@@ -263,11 +283,15 @@ Deno.serve(async (req) => {
       if (!["collected", "returned", "partial"].includes(kind)) throw new HttpErr(400, "نوع غير معروف");
       const keptSub = kept.reduce((s, l) => s + Number(l.price) * Number(l.qty), 0);
       const net = kind === "returned" ? 0 : (body.net_amount != null && body.net_amount !== "" ? Number(body.net_amount) : keptSub - Number(o.deposit));
-      // 1) receipt for what was actually sold (deducts stock in Loyverse)
-      let receipt: string | null = null;
-      if (kept.length) receipt = await createReceipt(o, kept);
-      // 2) put back everything we reserved at confirmation (receipt already took the sold part)
-      if (o.stock_deducted) await adjustStock(o.items, 1);
+      let receipt: string | null = o.receipt_number;
+      if (o.receipt_number) {
+        // receipt was made on save: put the returned pieces back in stock
+        if (back.length) await adjustStock(back, 1);
+      } else {
+        // legacy order: receipt for what was actually sold, then release the reservation
+        if (kept.length) receipt = await createReceipt(o, kept);
+        if (o.stock_deducted) await adjustStock(o.items, 1);
+      }
       await save(o, { status: kind, settled_at: now(), settled_by: p.id, net_amount: net, returned_items: back.length ? back : null,
         receipt_number: receipt, stock_deducted: false });
       return json({ ok: true, receipt });
