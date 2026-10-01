@@ -36,6 +36,7 @@ textarea{min-height:70px;resize:vertical}
 .btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .items .it{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.oits{display:grid;gap:6px;margin:6px 0}.oit{display:flex;gap:10px;align-items:center}.oit .thumb{width:64px;height:64px;flex:none}.bc{font-family:monospace;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--acc)}
 .thumb{width:56px;height:56px;border-radius:10px;background:var(--acc2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--acc);font-weight:700;font-size:12px;text-align:center;overflow:hidden}
 .it .nm{font-weight:700}.it .sub{font-size:13px;color:var(--mut)}
 .qty{display:flex;align-items:center;gap:6px}
@@ -118,7 +119,8 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;borde
       <div><label>الموبايل *</label><input id="fPhone" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx"><div id="phoneMsg"></div></div>
     </div>
     <div class="row">
-      <div><label>المنطقة / المحافظة *</label><select id="fZone"></select></div>
+      <div><label>المنطقة / المحافظة *</label><select id="fZone"></select>
+        <label style="margin-top:8px">مصاريف الشحن (تقدر تعدّلها)</label><input id="fShip" inputmode="numeric" dir="ltr" placeholder="اختار المنطقة الأول"></div>
       <div><label>موبايل تاني (اختياري)</label><input id="fPhone2" inputmode="tel" dir="ltr"></div>
     </div>
     <label>العنوان بالتفصيل *</label><textarea id="fAddr" placeholder="المنطقة - الشارع - رقم العمارة - الدور - علامة مميزة"></textarea>
@@ -208,19 +210,19 @@ function toast(m,ms=2600){const t=$("#toast");t.textContent=m;t.style.display="b
 /* ---- zones: [label, city value for QP sheet, fee] ---- */
 const Z=(fee,city,names)=>names.split("|").map(n=>[n,city,fee]);
 const ZONES=[
- ["مترو (55)",[["مترو","مترو",55]]],
- ["القاهرة والجيزة (65)",[["القاهرة — باقي المناطق","قاهره",65],["الجيزة — باقي المناطق","جيزة",65]]],
- ["أطراف القاهرة والجيزة (70)",[...Z(70,"قاهره","التجمع|القطامية|المقطم|حلوان|السلام|المرج|الرحاب"),...Z(70,"جيزة","أكتوبر|الشيخ زايد|حدائق الأهرام|البدرشين|الحوامدية|دهشور|أوسيم|ناهيا|المنصورية|كرداسة|البراجيل|أبو رواش|منشأة القناطر|المنيب|أبو النمرس|شبرامنت|سقارة|نكلة"),...Z(70,"قليوبية","الخانكة|الخصوص|أبو زعبل")]],
- ["مدن جديدة (75)",[...Z(75,"قاهره","مدينتي|الشروق|بدر|هليوبوليس الجديدة|المستقبل"),...Z(75,"قليوبية","العبور"),...Z(75,"شرقيه","العاشر من رمضان"),...Z(75,"جيزة","العياط|الصف|أطفيح")]],
- ["القناة والإسكندرية (80)",[["الإسكندرية","اسكندريه",80],["الإسماعيلية","اسماعيلية",80],["السويس","سويس",80],["بورسعيد","بورسعيد",80]]],
- ["الدلتا (85)",[["الدقهلية","دقهلية",85],["القليوبية","قليوبية",85],["الغربية","غربيه",85],["الشرقية","شرقيه",85],["دمياط","دمياط",85],["كفر الشيخ","كفر الشيخ",85],["البحيرة","البحيرة",85],["المنوفية","المنوفية",85]]],
- ["الصعيد (95)",[["الفيوم","فيوم",95],["بني سويف","بني سويف",95],["المنيا","منيا",95],["أسيوط","اسيوط",95],["سوهاج","سوهاج",95],["قنا","قنا",95],["الأقصر","اقصر",95],["أسوان","اسوان",95]]],
- ["الساحل والغردقة (105)",[...Z(105,"مطروح","مرسى مطروح|الساحل الشمالي|العلمين|سيدي عبد الرحمن|مدينة الحمام"),["الغردقة","بحر الاحمر",105]]],
- ["شرم الشيخ (120)",[["شرم الشيخ","شرم الشيخ",120]]],
- ["أماكن بعيدة (125)",[...Z(125,"بحر الاحمر","سفاجا|القصير|رأس غارب|مرسى علم|خليج مكادي"),...Z(125,"جنوب سيناء","الطور|دهب")]],
+ ["مترو",[["مترو","مترو",55]]],
+ ["القاهرة والجيزة",[["القاهرة","قاهره",65],["الجيزة","جيزة",65]]],
+ ["أطراف القاهرة والجيزة",[...Z(70,"قاهره","التجمع|القطامية|المقطم|حلوان|السلام|المرج|الرحاب"),...Z(70,"جيزة","أكتوبر|الشيخ زايد|حدائق الأهرام|البدرشين|الحوامدية|دهشور|أوسيم|ناهيا|المنصورية|كرداسة|البراجيل|أبو رواش|منشأة القناطر|المنيب|أبو النمرس|شبرامنت|سقارة|نكلة"),...Z(70,"قليوبية","الخانكة|الخصوص|أبو زعبل")]],
+ ["مدن جديدة",[...Z(75,"قاهره","مدينتي|الشروق|بدر|هليوبوليس الجديدة|المستقبل"),...Z(75,"قليوبية","العبور"),...Z(75,"شرقيه","العاشر من رمضان"),...Z(75,"جيزة","العياط|الصف|أطفيح")]],
+ ["القناة والإسكندرية",[["الإسكندرية","اسكندريه",80],["الإسماعيلية","اسماعيلية",80],["السويس","سويس",80],["بورسعيد","بورسعيد",80]]],
+ ["الدلتا",[["الدقهلية","دقهلية",85],["القليوبية","قليوبية",85],["الغربية","غربيه",85],["الشرقية","شرقيه",85],["دمياط","دمياط",85],["كفر الشيخ","كفر الشيخ",85],["البحيرة","البحيرة",85],["المنوفية","المنوفية",85]]],
+ ["الصعيد",[["الفيوم","فيوم",95],["بني سويف","بني سويف",95],["المنيا","منيا",95],["أسيوط","اسيوط",95],["سوهاج","سوهاج",95],["قنا","قنا",95],["الأقصر","اقصر",95],["أسوان","اسوان",95]]],
+ ["الساحل والغردقة",[...Z(105,"مطروح","مرسى مطروح|الساحل الشمالي|العلمين|سيدي عبد الرحمن|مدينة الحمام"),["الغردقة","بحر الاحمر",105]]],
+ ["شرم الشيخ",[["شرم الشيخ","شرم الشيخ",120]]],
+ ["أماكن بعيدة",[...Z(125,"بحر الاحمر","سفاجا|القصير|رأس غارب|مرسى علم|خليج مكادي"),...Z(125,"جنوب سيناء","الطور|دهب")]],
 ];
 const ZMAP={};ZONES.forEach(([,l])=>l.forEach(z=>ZMAP[z[0]]=z));
-$("#fZone").innerHTML='<option value="">— اختار —</option>'+ZONES.map(([g,l])=>`<optgroup label="${g}">${l.map(z=>`<option>${z[0]}</option>`).join("")}</optgroup>`).join("");
+$("#fZone").innerHTML='<option value="">— اختار —</option>'+ZONES.map(([g,l])=>`<optgroup label="${g}">${l.map(z=>`<option value="${z[0]}">${z[0]} — ${z[2]} ج</option>`).join("")}</optgroup>`).join("");
 
 /* ---- state ---- */
 let ME=null, PROFILES={}, CAT=null, FEAT=new Set(), ITEMS=[], ORDERS=[], FILTER="new";
@@ -326,7 +328,7 @@ $("#pick").onclick=e=>{if(e.target.id==="pick")closePick()};
 /* ---- order form ---- */
 function addLine(p,v){
   const ex=ITEMS.find(i=>i.variant_id===v.variant_id);
-  if(ex) ex.qty++; else ITEMS.push({item_id:p.item_id,variant_id:v.variant_id,name:p.name,color:v.color,sku:v.sku,price:v.price,qty:1,image:p.image,max:p.track?v.available:999});
+  if(ex) ex.qty++; else ITEMS.push({item_id:p.item_id,variant_id:v.variant_id,name:p.name,color:v.color,sku:v.sku,barcode:v.barcode||"",price:v.price,qty:1,image:p.image,max:p.track?v.available:999});
   renderItems();
 }
 function renderItems(){
@@ -340,9 +342,10 @@ function renderItems(){
 $("#items").oninput=e=>{const k=e.target.dataset.k;if(k==null)return;ITEMS[k][e.target.dataset.f]=num(e.target.value);calc()};
 $("#items").onchange=()=>renderItems();
 $("#items").onclick=e=>{const d=e.target.dataset.del;if(d!=null){ITEMS.splice(d,1);renderItems()}};
-function totals(){const sub=ITEMS.reduce((s,i)=>s+i.price*i.qty,0);const z=ZMAP[$("#fZone").value];const ship=z?z[2]:0;const dep=num($("#fDep").value);return{sub,ship,dep,cod:sub+ship-dep,z}}
+function totals(){const sub=ITEMS.reduce((s,i)=>s+i.price*i.qty,0);const z=ZMAP[$("#fZone").value];const ship=z?num($("#fShip").value):0;const dep=num($("#fDep").value);return{sub,ship,dep,cod:sub+ship-dep,z}}
 function calc(){const t=totals();$("#sSub").textContent=money(t.sub);$("#sShip").textContent=t.z?money(t.ship):"—";$("#sDep").textContent=money(t.dep);$("#sCod").textContent=money(t.cod)}
-["#fZone","#fDep"].forEach(s=>$(s).addEventListener("input",calc));
+$("#fZone").addEventListener("change",()=>{const z=ZMAP[$("#fZone").value];$("#fShip").value=z?z[2]:"";calc()});
+["#fZone","#fDep","#fShip"].forEach(s=>$(s).addEventListener("input",calc));
 const contents=items=>items.map(i=>`${i.name}${i.color?" "+i.color:""}${i.qty>1?" ×"+i.qty:""}`).join(" + ");
 
 let dupTimer;
@@ -365,16 +368,17 @@ $("#save").onclick=async()=>{
   if(!ITEMS.length)e.push("منتج واحد على الأقل");
   if(ITEMS.some(i=>i.qty<1))e.push("كمية صحيحة");
   if(ITEMS.some(i=>i.qty>i.max))e.push("كمية في حدود المتاح");
+  if(t.z&&$("#fShip").value.trim()==="")e.push("مصاريف الشحن");
   if(t.dep>t.sub+t.ship)e.push("عربون أقل من الإجمالي");
   if(e.length){$("#fErr").textContent="ناقص: "+e.join("، ");return}
   $("#fErr").textContent="";$("#save").disabled=true;
   const row={customer_name:name,phone,phone2:digits($("#fPhone2").value)||null,address:addr,zone:t.z[0],city:t.z[1],shipping_fee:t.ship,
-    items:ITEMS.map(({max,image,...i})=>i),subtotal:t.sub,deposit:t.dep,contents:contents(ITEMS),notes:$("#fNotes").value.trim()||null,created_by:ME.id};
+    items:ITEMS.map(({max,...i})=>i),subtotal:t.sub,deposit:t.dep,contents:contents(ITEMS),notes:$("#fNotes").value.trim()||null,created_by:ME.id};
   let data;
   try{data=await api("create_order",{order:row})}catch(err){$("#save").disabled=false;$("#fErr").textContent="حصل خطأ: "+err.message;return}
   $("#save").disabled=false;
   toast("✅ اتحفظ أوردر #"+data.id+(data.receipt?" — فاتورة "+data.receipt:""));
-  ITEMS=[];["#fName","#fPhone","#fPhone2","#fAddr","#fNotes"].forEach(s=>$(s).value="");$("#fDep").value=0;$("#fZone").value="";$("#phoneMsg").innerHTML="";renderItems();
+  ITEMS=[];["#fName","#fPhone","#fPhone2","#fAddr","#fNotes"].forEach(s=>$(s).value="");$("#fDep").value=0;$("#fZone").value="";$("#fShip").value="";$("#phoneMsg").innerHTML="";renderItems();
   CAT=null;loadCat(true);
 };
 
@@ -394,7 +398,7 @@ function orderCard(o,acts,extra=""){
     <div class="hd">${extra}<b>#${o.id}</b><span class="pill s-${o.status}">${ST[o.status]}</span><span class="muted" style="margin-inline-start:auto">${when(o.created_at)}</span></div>
     <div><b>${esc(o.customer_name)}</b> · <a href="tel:${o.phone}" dir="ltr">${o.phone}</a>${o.phone2?` · <span dir="ltr">${esc(o.phone2)}</span>`:""}</div>
     <div class="muted">${esc(o.zone)} — ${esc(o.address)}</div>
-    <div>🛍 ${esc(o.contents)}</div>
+    <div class="oits">${(o.items||[]).map(i=>`<div class="oit">${i.image?`<a href="${esc(i.image)}" target="_blank"><div class="thumb" style="background-image:url('${esc(i.image)}')"></div></a>`:`<div class="thumb">👜</div>`}<div><b>${esc(i.name)}</b>${i.color?` · ${esc(i.color)}`:""} × ${i.qty}${i.barcode?`<div class="bc" dir="ltr">${esc(i.barcode)}</div>`:""}</div></div>`).join("")||"🛍 "+esc(o.contents)}</div>
     <div class="muted">منتجات ${money(o.subtotal)} + شحن ${money(o.shipping_fee)} − عربون ${money(o.deposit)} = <b style="color:var(--acc)">${money(o.cod)}</b></div>
     ${o.notes?`<div class="muted">📝 ${esc(o.notes)}</div>`:""}
     ${o.sync_note?`<div class="warnbox">${esc(o.sync_note)}</div>`:""}

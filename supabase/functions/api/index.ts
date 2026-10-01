@@ -76,7 +76,7 @@ async function catalog(force = false) {
           const r = reserved.get(v.variant_id) || 0;
           return {
             variant_id: v.variant_id,
-            sku: v.sku || "",
+            sku: v.sku || "", barcode: v.barcode || "",
             color: [v.option1_value, v.option2_value, v.option3_value].filter(Boolean).join(" / "),
             price: Number(st?.price ?? v.default_price ?? 0),
             stock: s, reserved: r, available: s - r,
@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     if (a === "create_order") {
       need(p, ["admin", "moderator"]);
       const b = body.order || {};
-      const items = (b.items || []).map((i: any) => ({ item_id: i.item_id, variant_id: i.variant_id, name: i.name, color: i.color || "", sku: i.sku || "", price: Number(i.price), qty: Number(i.qty) }));
+      const items = (b.items || []).map((i: any) => ({ item_id: i.item_id, variant_id: i.variant_id, name: i.name, color: i.color || "", sku: i.sku || "", barcode: i.barcode || "", image: i.image || null, price: Number(i.price), qty: Number(i.qty) }));
       if (!items.length || items.some((i: any) => !i.variant_id || !(i.qty > 0) || !(i.price >= 0))) throw new HttpErr(400, "المنتجات مش صحيحة");
       const subtotal = items.reduce((s: number, i: any) => s + i.price * i.qty, 0);
       const row = { customer_name: String(b.customer_name || "").trim(), phone: b.phone, phone2: b.phone2 || null, address: String(b.address || "").trim(),
